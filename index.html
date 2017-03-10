@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>java spring+mybatis整合实现爬虫之《今日头条》搞笑动态图片爬取</title>
+<link rel="stylesheet" href="https://stackedit.io/res-min/themes/base.css" />
+<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"></script>
+</head>
+<body><div class="container"><h2 id="java-springmybatis整合实现爬虫之今日头条搞笑动态图片爬取详细">java spring+mybatis整合实现爬虫之《今日头条》搞笑动态图片爬取（详细）</h2>
+
+<hr>
+
+
+
+<h2 id="一此爬虫介绍">一.此爬虫介绍</h2>
+
+<blockquote>
+  <p>今日头条本身就是做爬虫的，爬取各大网站的图片文字信息，再自己整合后推送给用户，特别是里面的动态图片，很有意思。在网上搜了搜，大多都是用Python来写的，本人是学习javaweb这块的，对正则表达式也不是很熟悉，就想着能不能换个我熟悉的方式来写。此爬虫使用spring+mybatis框架整合实现，使用mysql数据库保存爬取的数据，用jsoup来操作HTML的标签节点（完美避开正则表达式），获取文章中动态图片的链接，通过响应头中“Content-Type”的值来判断图片的格式，再将图片保存在本地。当然也可以爬取里面的文字，比如一些搞笑的黄段子，在此基础上稍加改动就可以实现，此爬虫只是提供一个入门的思路，更多好玩的爬虫玩法还待大家去开发，哈哈。</p>
+</blockquote>
+
+
+
+<h2 id="二技术选型">二.技术选型</h2>
+
+<blockquote>
+  <ol>
+  <li>核心语言：java；</li>
+  <li>核心框架：spring；</li>
+  <li>持久层框架：mybatis；</li>
+  <li>数据库连接池：Alibaba Drui；</li>
+  <li>日志管理：Log4j；</li>
+  <li>jar包管理：maven； 。。。。</li>
+  </ol>
+</blockquote>
+
+
+
+<h2 id="三找规律划重点">三.找规律，划重点</h2>
+
+<blockquote>
+  <p>打开头条首页，找到点击搞笑模块，点击F12,下滚后加载下一页，发现是通过ajax请求api来获取的数据，如下图：</p>
+</blockquote>
+
+<p><img src="http://img.blog.csdn.net/20161226223513868?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjA5NTQ5NTk=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+
+<blockquote>
+  <p><strong>这是响应的json数据，里面的参数和值顾名思义大家都懂得。</strong></p>
+</blockquote>
+
+<p><img src="http://img.blog.csdn.net/20161226223904416?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjA5NTQ5NTk=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+
+<blockquote>
+  <p>是ajax访问就好解决了，通过我百度谷歌各种研究后发现，ajax请求的前三个参数是不变的，改变category参数是请求不同的模块，本列子是请求的搞笑模块所以值为funny，max_behot_time和max_behot_time_tmp这两个参数值是时间戳，首次请求是0，之后的值是响应json数据里面的next中的值。as和cp值是通过一段js生成的，其实就是一个加密了的时间戳而已。js代码后面会贴。</p>
+</blockquote>
+
+
+
+<h2 id="四开始搭框架撸代码">四.开始搭框架撸代码</h2>
+
+<blockquote>
+  <p>项目搭建后之后为下图所示的文件结构，不懂得自行谷歌  哈哈</p>
+</blockquote>
+
+<p><img src="http://img.blog.csdn.net/20161226225657064?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjA5NTQ5NTk=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+
+<blockquote>
+  <p><strong>不多说直接上核心代码了：</strong></p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs java"><span class="hljs-keyword">package</span> io.z77z.main;
+
+<span class="hljs-keyword">import</span> io.z77z.dao.FunnyMapper;
+<span class="hljs-keyword">import</span> io.z77z.entity.Funny;
+
+<span class="hljs-keyword">import</span> java.io.BufferedInputStream;
+<span class="hljs-keyword">import</span> java.io.BufferedReader;
+<span class="hljs-keyword">import</span> java.io.FileOutputStream;
+<span class="hljs-keyword">import</span> java.io.FileReader;
+<span class="hljs-keyword">import</span> java.io.IOException;
+<span class="hljs-keyword">import</span> java.io.InputStreamReader;
+<span class="hljs-keyword">import</span> java.net.HttpURLConnection;
+<span class="hljs-keyword">import</span> java.net.URL;
+<span class="hljs-keyword">import</span> java.util.Date;
+<span class="hljs-keyword">import</span> java.util.UUID;
+
+<span class="hljs-keyword">import</span> javax.script.Invocable;
+<span class="hljs-keyword">import</span> javax.script.ScriptEngine;
+<span class="hljs-keyword">import</span> javax.script.ScriptEngineManager;
+
+<span class="hljs-keyword">import</span> org.jsoup.Connection;
+<span class="hljs-keyword">import</span> org.jsoup.Jsoup;
+<span class="hljs-keyword">import</span> org.jsoup.nodes.Document;
+<span class="hljs-keyword">import</span> org.jsoup.nodes.Element;
+<span class="hljs-keyword">import</span> org.jsoup.select.Elements;
+<span class="hljs-keyword">import</span> org.springframework.context.ApplicationContext;
+<span class="hljs-keyword">import</span> org.springframework.context.support.ClassPathXmlApplicationContext;
+
+<span class="hljs-keyword">import</span> com.alibaba.fastjson.JSON;
+<span class="hljs-keyword">import</span> com.alibaba.fastjson.JSONArray;
+<span class="hljs-keyword">import</span> com.alibaba.fastjson.JSONObject;
+
+<span class="hljs-keyword">public</span> <span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">TouTiaoCrawler</span> {</span>
+
+    <span class="hljs-comment">// 搞笑板块的api地址</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String FUNNY = <span class="hljs-string">"http://www.toutiao.com/api/pc/feed/?utm_source=toutiao&amp;widen=1"</span>;
+
+    <span class="hljs-comment">// 头条首页地址</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">final</span> String TOUTIAO = <span class="hljs-string">"http://www.toutiao.com"</span>;
+
+    <span class="hljs-comment">// 使用"spring.xml"和"spring-mybatis.xml"这两个配置文件创建Spring上下文</span>
+    <span class="hljs-keyword">static</span> ApplicationContext ac = <span class="hljs-keyword">new</span> ClassPathXmlApplicationContext(
+            <span class="hljs-string">"spring-mybatis.xml"</span>);
+
+    <span class="hljs-comment">// 从Spring容器中根据bean的id取出我们要使用的funnyMapper对象</span>
+    <span class="hljs-keyword">static</span> FunnyMapper funnyMapper = (FunnyMapper) ac.getBean(<span class="hljs-string">"funnyMapper"</span>);
+
+    <span class="hljs-comment">// 接口访问次数</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">int</span> refreshCount = <span class="hljs-number">0</span>;
+
+    <span class="hljs-comment">// 时间戳</span>
+    <span class="hljs-keyword">private</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">long</span> time = <span class="hljs-number">0</span>;
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">main</span>(String[] args) {
+        System.out.println(<span class="hljs-string">"----------开始干活！-----------------"</span>);
+        <span class="hljs-keyword">while</span> (<span class="hljs-keyword">true</span>) {
+            crawler(time);
+        }
+    }
+
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">crawler</span>(<span class="hljs-keyword">long</span> hottime) {<span class="hljs-comment">// 传入时间戳，会获取这个时间戳的内容</span>
+        refreshCount++;
+        System.out.println(<span class="hljs-string">"----------第"</span> + refreshCount + <span class="hljs-string">"次刷新------返回的请求时间为："</span>
+                + hottime + <span class="hljs-string">"----------"</span>);
+        String url = FUNNY + <span class="hljs-string">"&amp;max_behot_time="</span> + hottime
+                + <span class="hljs-string">"&amp;max_behot_time_tmp="</span> + hottime;
+        JSONObject param = getUrlParam(); <span class="hljs-comment">// 获取用js代码得到的as和cp的值</span>
+        <span class="hljs-comment">// 定义接口访问的模块</span>
+        <span class="hljs-comment">/*
+         * __all__ : 推荐 news_hot: 热点 funny：搞笑
+         */</span>
+        String module = <span class="hljs-string">"funny"</span>;
+        url += <span class="hljs-string">"&amp;as="</span> + param.get(<span class="hljs-string">"as"</span>) + <span class="hljs-string">"&amp;cp="</span> + param.get(<span class="hljs-string">"cp"</span>)
+                + <span class="hljs-string">"&amp;category="</span> + module;
+        JSONObject json = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            json = getReturnJson(url);<span class="hljs-comment">// 获取json串</span>
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            e.printStackTrace();
+        }
+        <span class="hljs-keyword">if</span> (json != <span class="hljs-keyword">null</span>) {
+            time = json.getJSONObject(<span class="hljs-string">"next"</span>).getLongValue(<span class="hljs-string">"max_behot_time"</span>);
+            JSONArray data = json.getJSONArray(<span class="hljs-string">"data"</span>);
+            <span class="hljs-keyword">for</span> (<span class="hljs-keyword">int</span> i = <span class="hljs-number">0</span>; i &lt; data.size(); i++) {
+                <span class="hljs-keyword">try</span> {
+                    JSONObject obj = (JSONObject) data.get(i);
+                    <span class="hljs-comment">// 判断这条文章是否已经爬过</span>
+                    <span class="hljs-keyword">if</span> (funnyMapper.selectByGroupId((String) obj
+                            .get(<span class="hljs-string">"group_id"</span>)) != <span class="hljs-keyword">null</span>) {
+                        System.out
+                                .println(<span class="hljs-string">"----------此文章已经爬过啦！-----------------"</span>);
+                        <span class="hljs-keyword">continue</span>;
+                    }
+                    <span class="hljs-comment">// 访问页面返回document对象</span>
+                    String url1 = TOUTIAO + <span class="hljs-string">"/a"</span> + obj.getString(<span class="hljs-string">"group_id"</span>);
+                    Document document = getArticleInfo(url1);
+                    System.out.println(<span class="hljs-string">"----------成功访问了文章："</span> + url1
+                            + <span class="hljs-string">"-----------------"</span>);
+                    <span class="hljs-comment">// 将document也存入</span>
+                    obj.put(<span class="hljs-string">"document"</span>, document.toString());
+                    <span class="hljs-comment">// 将json对象转换成java Entity对象</span>
+                    Funny funny = JSON.parseObject(obj.toString(), Funny.class);
+                    <span class="hljs-comment">// json入库</span>
+                    funny.setBehotTime(<span class="hljs-keyword">new</span> Date());
+                    funnyMapper.insertSelective(funny);
+                } <span class="hljs-keyword">catch</span> (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        } <span class="hljs-keyword">else</span> {
+            System.out.println(<span class="hljs-string">"----------返回的json列表为空----------"</span>);
+        }
+    }
+
+    <span class="hljs-comment">// 访问接口，返回json封装的数据格式</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> JSONObject <span class="hljs-title">getReturnJson</span>(String url) {
+        <span class="hljs-keyword">try</span> {
+            URL httpUrl = <span class="hljs-keyword">new</span> URL(url);
+            BufferedReader in = <span class="hljs-keyword">new</span> BufferedReader(<span class="hljs-keyword">new</span> InputStreamReader(
+                    httpUrl.openStream(), <span class="hljs-string">"UTF-8"</span>));
+            String line = <span class="hljs-keyword">null</span>;
+            String content = <span class="hljs-string">""</span>;
+            <span class="hljs-keyword">while</span> ((line = in.readLine()) != <span class="hljs-keyword">null</span>) {
+                content += line;
+            }
+            in.close();
+            <span class="hljs-keyword">return</span> JSONObject.parseObject(content);
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            System.err.println(<span class="hljs-string">"访问失败:"</span> + url);
+            e.printStackTrace();
+        }
+        <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+    }
+
+    <span class="hljs-comment">// 获取网站的document对象</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> Document <span class="hljs-title">getArticleInfo</span>(String url) {
+        <span class="hljs-keyword">try</span> {
+            Connection connect = Jsoup.connect(url);
+            Document document;
+            document = connect.get();
+            Elements article = document.getElementsByClass(<span class="hljs-string">"article-content"</span>);
+            <span class="hljs-keyword">if</span> (article.size() &gt; <span class="hljs-number">0</span>) {
+                Elements a = article.get(<span class="hljs-number">0</span>).getElementsByTag(<span class="hljs-string">"img"</span>);
+                <span class="hljs-keyword">if</span> (a.size() &gt; <span class="hljs-number">0</span>) {
+                    <span class="hljs-keyword">for</span> (Element e : a) {
+                        String url2 = e.attr(<span class="hljs-string">"src"</span>);
+                        <span class="hljs-comment">// 下载img标签里面的图片到本地</span>
+                        saveToFile(url2);
+                    }
+                }
+            }
+            <span class="hljs-keyword">return</span> document;
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            System.err.println(<span class="hljs-string">"访问文章页失败:"</span> + url + <span class="hljs-string">"  原因"</span> + e.getMessage());
+            <span class="hljs-keyword">return</span> <span class="hljs-keyword">null</span>;
+        }
+    }
+
+    <span class="hljs-comment">// 执行js获取as和cp参数值</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> JSONObject <span class="hljs-title">getUrlParam</span>() {
+        JSONObject jsonObject = <span class="hljs-keyword">null</span>;
+        FileReader reader = <span class="hljs-keyword">null</span>;
+        <span class="hljs-keyword">try</span> {
+            ScriptEngineManager manager = <span class="hljs-keyword">new</span> ScriptEngineManager();
+            ScriptEngine engine = manager.getEngineByName(<span class="hljs-string">"javascript"</span>);
+
+            String jsFileName = <span class="hljs-string">"toutiao.js"</span>; <span class="hljs-comment">// 读取js文件</span>
+
+            reader = <span class="hljs-keyword">new</span> FileReader(jsFileName); <span class="hljs-comment">// 执行指定脚本</span>
+            engine.eval(reader);
+
+            <span class="hljs-keyword">if</span> (engine <span class="hljs-keyword">instanceof</span> Invocable) {
+                Invocable invoke = (Invocable) engine;
+                Object obj = invoke.invokeFunction(<span class="hljs-string">"getParam"</span>);
+                jsonObject = JSONObject.parseObject(obj != <span class="hljs-keyword">null</span> ? obj
+                        .toString() : <span class="hljs-keyword">null</span>);
+            }
+        } <span class="hljs-keyword">catch</span> (Exception e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">finally</span> {
+            <span class="hljs-keyword">try</span> {
+                <span class="hljs-keyword">if</span> (reader != <span class="hljs-keyword">null</span>) {
+                    reader.close();
+                }
+            } <span class="hljs-keyword">catch</span> (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        <span class="hljs-keyword">return</span> jsonObject;
+    }
+
+    <span class="hljs-comment">// 通过url获取图片并保存在本地</span>
+    <span class="hljs-keyword">public</span> <span class="hljs-keyword">static</span> <span class="hljs-keyword">void</span> <span class="hljs-title">saveToFile</span>(String destUrl) {
+        FileOutputStream fos = <span class="hljs-keyword">null</span>;
+        BufferedInputStream bis = <span class="hljs-keyword">null</span>;
+        HttpURLConnection httpUrl = <span class="hljs-keyword">null</span>;
+        URL url = <span class="hljs-keyword">null</span>;
+        String uuid = UUID.randomUUID().toString();
+        String fileAddress = <span class="hljs-string">"d:\\imag/"</span> + uuid;<span class="hljs-comment">// 存储本地文件地址</span>
+        <span class="hljs-keyword">int</span> BUFFER_SIZE = <span class="hljs-number">1024</span>;
+        <span class="hljs-keyword">byte</span>[] buf = <span class="hljs-keyword">new</span> <span class="hljs-keyword">byte</span>[BUFFER_SIZE];
+        <span class="hljs-keyword">int</span> size = <span class="hljs-number">0</span>;
+        <span class="hljs-keyword">try</span> {
+            url = <span class="hljs-keyword">new</span> URL(destUrl);
+            httpUrl = (HttpURLConnection) url.openConnection();
+            httpUrl.connect();
+            String Type = httpUrl.getHeaderField(<span class="hljs-string">"Content-Type"</span>);
+            <span class="hljs-keyword">if</span> (Type.equals(<span class="hljs-string">"image/gif"</span>)) {
+                fileAddress += <span class="hljs-string">".gif"</span>;
+            } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (Type.equals(<span class="hljs-string">"image/png"</span>)) {
+                fileAddress += <span class="hljs-string">".png"</span>;
+            } <span class="hljs-keyword">else</span> <span class="hljs-keyword">if</span> (Type.equals(<span class="hljs-string">"image/jpeg"</span>)) {
+                fileAddress += <span class="hljs-string">".jpg"</span>;
+            } <span class="hljs-keyword">else</span> {
+                System.err.println(<span class="hljs-string">"未知图片格式"</span>);
+                <span class="hljs-keyword">return</span>;
+            }
+            bis = <span class="hljs-keyword">new</span> BufferedInputStream(httpUrl.getInputStream());
+            fos = <span class="hljs-keyword">new</span> FileOutputStream(fileAddress);
+            <span class="hljs-keyword">while</span> ((size = bis.read(buf)) != -<span class="hljs-number">1</span>) {
+                fos.write(buf, <span class="hljs-number">0</span>, size);
+            }
+            fos.flush();
+            System.out.println(<span class="hljs-string">"图片保存成功！地址："</span> + fileAddress);
+        } <span class="hljs-keyword">catch</span> (IOException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">catch</span> (ClassCastException e) {
+            e.printStackTrace();
+        } <span class="hljs-keyword">finally</span> {
+            <span class="hljs-keyword">try</span> {
+                fos.close();
+                bis.close();
+                httpUrl.disconnect();
+            } <span class="hljs-keyword">catch</span> (IOException e) {
+                e.printStackTrace();
+            } <span class="hljs-keyword">catch</span> (NullPointerException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+}
+</code></pre>
+
+<blockquote>
+  <p><strong>获取as和cp参数的js代码</strong></p>
+</blockquote>
+
+
+
+<pre class="prettyprint"><code class=" hljs javascript"><span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">getParam</span><span class="hljs-params">()</span>{</span>
+    <span class="hljs-keyword">var</span> asas;
+    <span class="hljs-keyword">var</span> cpcp;
+    <span class="hljs-keyword">var</span> t = <span class="hljs-built_in">Math</span>.floor((<span class="hljs-keyword">new</span> <span class="hljs-built_in">Date</span>).getTime() / <span class="hljs-number">1e3</span>)
+      , e = t.toString(<span class="hljs-number">16</span>).toUpperCase()
+      , i = md5(t).toString().toUpperCase();
+    <span class="hljs-keyword">if</span> (<span class="hljs-number">8</span> != e.length){
+        asas = <span class="hljs-string">"479BB4B7254C150"</span>;
+        cpcp = <span class="hljs-string">"7E0AC8874BB0985"</span>;
+    }<span class="hljs-keyword">else</span>{
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> n = i.slice(<span class="hljs-number">0</span>, <span class="hljs-number">5</span>), o = i.slice(-<span class="hljs-number">5</span>), a = <span class="hljs-string">""</span>, s = <span class="hljs-number">0</span>; <span class="hljs-number">5</span> &gt; s; s++){
+            a += n[s] + e[s];
+        }
+        <span class="hljs-keyword">for</span> (<span class="hljs-keyword">var</span> r = <span class="hljs-string">""</span>, c = <span class="hljs-number">0</span>; <span class="hljs-number">5</span> &gt; c; c++){
+            r += e[c + <span class="hljs-number">3</span>] + o[c];
+        }
+        asas = <span class="hljs-string">"A1"</span> + a + e.slice(-<span class="hljs-number">3</span>);
+        cpcp= e.slice(<span class="hljs-number">0</span>, <span class="hljs-number">3</span>) + r + <span class="hljs-string">"E1"</span>;
+    }
+    <span class="hljs-keyword">return</span> <span class="hljs-string">'{"as":"'</span>+asas+<span class="hljs-string">'","cp":"'</span>+cpcp+<span class="hljs-string">'"}'</span>;
+}
+
+!<span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">(e)</span> {</span>
+<span class="hljs-pi">    "use strict"</span>;
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">t</span><span class="hljs-params">(e, t)</span> {</span>
+        <span class="hljs-keyword">var</span> n = (<span class="hljs-number">65535</span> &amp; e) + (<span class="hljs-number">65535</span> &amp; t)
+          , r = (e &gt;&gt; <span class="hljs-number">16</span>) + (t &gt;&gt; <span class="hljs-number">16</span>) + (n &gt;&gt; <span class="hljs-number">16</span>);
+        <span class="hljs-keyword">return</span> r &lt;&lt; <span class="hljs-number">16</span> | <span class="hljs-number">65535</span> &amp; n
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">n</span><span class="hljs-params">(e, t)</span> {</span>
+        <span class="hljs-keyword">return</span> e &lt;&lt; t | e &gt;&gt;&gt; <span class="hljs-number">32</span> - t
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">r</span><span class="hljs-params">(e, r, o, i, a, u)</span> {</span>
+        <span class="hljs-keyword">return</span> t(n(t(t(r, e), t(i, u)), a), o)
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">o</span><span class="hljs-params">(e, t, n, o, i, a, u)</span> {</span>
+        <span class="hljs-keyword">return</span> r(t &amp; n | ~t &amp; o, e, t, i, a, u)
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">i</span><span class="hljs-params">(e, t, n, o, i, a, u)</span> {</span>
+        <span class="hljs-keyword">return</span> r(t &amp; o | n &amp; ~o, e, t, i, a, u)
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">a</span><span class="hljs-params">(e, t, n, o, i, a, u)</span> {</span>
+        <span class="hljs-keyword">return</span> r(t ^ n ^ o, e, t, i, a, u)
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">u</span><span class="hljs-params">(e, t, n, o, i, a, u)</span> {</span>
+        <span class="hljs-keyword">return</span> r(n ^ (t | ~o), e, t, i, a, u)
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">s</span><span class="hljs-params">(e, n)</span> {</span>
+        e[n &gt;&gt; <span class="hljs-number">5</span>] |= <span class="hljs-number">128</span> &lt;&lt; n % <span class="hljs-number">32</span>,
+        e[(n + <span class="hljs-number">64</span> &gt;&gt;&gt; <span class="hljs-number">9</span> &lt;&lt; <span class="hljs-number">4</span>) + <span class="hljs-number">14</span>] = n;
+        <span class="hljs-keyword">var</span> r, s, c, l, f, p = <span class="hljs-number">1732584193</span>, d = -<span class="hljs-number">271733879</span>, h = -<span class="hljs-number">1732584194</span>, m = <span class="hljs-number">271733878</span>;
+        <span class="hljs-keyword">for</span> (r = <span class="hljs-number">0</span>; r &lt; e.length; r += <span class="hljs-number">16</span>)
+            s = p,
+            c = d,
+            l = h,
+            f = m,
+            p = o(p, d, h, m, e[r], <span class="hljs-number">7</span>, -<span class="hljs-number">680876936</span>),
+            m = o(m, p, d, h, e[r + <span class="hljs-number">1</span>], <span class="hljs-number">12</span>, -<span class="hljs-number">389564586</span>),
+            h = o(h, m, p, d, e[r + <span class="hljs-number">2</span>], <span class="hljs-number">17</span>, <span class="hljs-number">606105819</span>),
+            d = o(d, h, m, p, e[r + <span class="hljs-number">3</span>], <span class="hljs-number">22</span>, -<span class="hljs-number">1044525330</span>),
+            p = o(p, d, h, m, e[r + <span class="hljs-number">4</span>], <span class="hljs-number">7</span>, -<span class="hljs-number">176418897</span>),
+            m = o(m, p, d, h, e[r + <span class="hljs-number">5</span>], <span class="hljs-number">12</span>, <span class="hljs-number">1200080426</span>),
+            h = o(h, m, p, d, e[r + <span class="hljs-number">6</span>], <span class="hljs-number">17</span>, -<span class="hljs-number">1473231341</span>),
+            d = o(d, h, m, p, e[r + <span class="hljs-number">7</span>], <span class="hljs-number">22</span>, -<span class="hljs-number">45705983</span>),
+            p = o(p, d, h, m, e[r + <span class="hljs-number">8</span>], <span class="hljs-number">7</span>, <span class="hljs-number">1770035416</span>),
+            m = o(m, p, d, h, e[r + <span class="hljs-number">9</span>], <span class="hljs-number">12</span>, -<span class="hljs-number">1958414417</span>),
+            h = o(h, m, p, d, e[r + <span class="hljs-number">10</span>], <span class="hljs-number">17</span>, -<span class="hljs-number">42063</span>),
+            d = o(d, h, m, p, e[r + <span class="hljs-number">11</span>], <span class="hljs-number">22</span>, -<span class="hljs-number">1990404162</span>),
+            p = o(p, d, h, m, e[r + <span class="hljs-number">12</span>], <span class="hljs-number">7</span>, <span class="hljs-number">1804603682</span>),
+            m = o(m, p, d, h, e[r + <span class="hljs-number">13</span>], <span class="hljs-number">12</span>, -<span class="hljs-number">40341101</span>),
+            h = o(h, m, p, d, e[r + <span class="hljs-number">14</span>], <span class="hljs-number">17</span>, -<span class="hljs-number">1502002290</span>),
+            d = o(d, h, m, p, e[r + <span class="hljs-number">15</span>], <span class="hljs-number">22</span>, <span class="hljs-number">1236535329</span>),
+            p = i(p, d, h, m, e[r + <span class="hljs-number">1</span>], <span class="hljs-number">5</span>, -<span class="hljs-number">165796510</span>),
+            m = i(m, p, d, h, e[r + <span class="hljs-number">6</span>], <span class="hljs-number">9</span>, -<span class="hljs-number">1069501632</span>),
+            h = i(h, m, p, d, e[r + <span class="hljs-number">11</span>], <span class="hljs-number">14</span>, <span class="hljs-number">643717713</span>),
+            d = i(d, h, m, p, e[r], <span class="hljs-number">20</span>, -<span class="hljs-number">373897302</span>),
+            p = i(p, d, h, m, e[r + <span class="hljs-number">5</span>], <span class="hljs-number">5</span>, -<span class="hljs-number">701558691</span>),
+            m = i(m, p, d, h, e[r + <span class="hljs-number">10</span>], <span class="hljs-number">9</span>, <span class="hljs-number">38016083</span>),
+            h = i(h, m, p, d, e[r + <span class="hljs-number">15</span>], <span class="hljs-number">14</span>, -<span class="hljs-number">660478335</span>),
+            d = i(d, h, m, p, e[r + <span class="hljs-number">4</span>], <span class="hljs-number">20</span>, -<span class="hljs-number">405537848</span>),
+            p = i(p, d, h, m, e[r + <span class="hljs-number">9</span>], <span class="hljs-number">5</span>, <span class="hljs-number">568446438</span>),
+            m = i(m, p, d, h, e[r + <span class="hljs-number">14</span>], <span class="hljs-number">9</span>, -<span class="hljs-number">1019803690</span>),
+            h = i(h, m, p, d, e[r + <span class="hljs-number">3</span>], <span class="hljs-number">14</span>, -<span class="hljs-number">187363961</span>),
+            d = i(d, h, m, p, e[r + <span class="hljs-number">8</span>], <span class="hljs-number">20</span>, <span class="hljs-number">1163531501</span>),
+            p = i(p, d, h, m, e[r + <span class="hljs-number">13</span>], <span class="hljs-number">5</span>, -<span class="hljs-number">1444681467</span>),
+            m = i(m, p, d, h, e[r + <span class="hljs-number">2</span>], <span class="hljs-number">9</span>, -<span class="hljs-number">51403784</span>),
+            h = i(h, m, p, d, e[r + <span class="hljs-number">7</span>], <span class="hljs-number">14</span>, <span class="hljs-number">1735328473</span>),
+            d = i(d, h, m, p, e[r + <span class="hljs-number">12</span>], <span class="hljs-number">20</span>, -<span class="hljs-number">1926607734</span>),
+            p = a(p, d, h, m, e[r + <span class="hljs-number">5</span>], <span class="hljs-number">4</span>, -<span class="hljs-number">378558</span>),
+            m = a(m, p, d, h, e[r + <span class="hljs-number">8</span>], <span class="hljs-number">11</span>, -<span class="hljs-number">2022574463</span>),
+            h = a(h, m, p, d, e[r + <span class="hljs-number">11</span>], <span class="hljs-number">16</span>, <span class="hljs-number">1839030562</span>),
+            d = a(d, h, m, p, e[r + <span class="hljs-number">14</span>], <span class="hljs-number">23</span>, -<span class="hljs-number">35309556</span>),
+            p = a(p, d, h, m, e[r + <span class="hljs-number">1</span>], <span class="hljs-number">4</span>, -<span class="hljs-number">1530992060</span>),
+            m = a(m, p, d, h, e[r + <span class="hljs-number">4</span>], <span class="hljs-number">11</span>, <span class="hljs-number">1272893353</span>),
+            h = a(h, m, p, d, e[r + <span class="hljs-number">7</span>], <span class="hljs-number">16</span>, -<span class="hljs-number">155497632</span>),
+            d = a(d, h, m, p, e[r + <span class="hljs-number">10</span>], <span class="hljs-number">23</span>, -<span class="hljs-number">1094730640</span>),
+            p = a(p, d, h, m, e[r + <span class="hljs-number">13</span>], <span class="hljs-number">4</span>, <span class="hljs-number">681279174</span>),
+            m = a(m, p, d, h, e[r], <span class="hljs-number">11</span>, -<span class="hljs-number">358537222</span>),
+            h = a(h, m, p, d, e[r + <span class="hljs-number">3</span>], <span class="hljs-number">16</span>, -<span class="hljs-number">722521979</span>),
+            d = a(d, h, m, p, e[r + <span class="hljs-number">6</span>], <span class="hljs-number">23</span>, <span class="hljs-number">76029189</span>),
+            p = a(p, d, h, m, e[r + <span class="hljs-number">9</span>], <span class="hljs-number">4</span>, -<span class="hljs-number">640364487</span>),
+            m = a(m, p, d, h, e[r + <span class="hljs-number">12</span>], <span class="hljs-number">11</span>, -<span class="hljs-number">421815835</span>),
+            h = a(h, m, p, d, e[r + <span class="hljs-number">15</span>], <span class="hljs-number">16</span>, <span class="hljs-number">530742520</span>),
+            d = a(d, h, m, p, e[r + <span class="hljs-number">2</span>], <span class="hljs-number">23</span>, -<span class="hljs-number">995338651</span>),
+            p = u(p, d, h, m, e[r], <span class="hljs-number">6</span>, -<span class="hljs-number">198630844</span>),
+            m = u(m, p, d, h, e[r + <span class="hljs-number">7</span>], <span class="hljs-number">10</span>, <span class="hljs-number">1126891415</span>),
+            h = u(h, m, p, d, e[r + <span class="hljs-number">14</span>], <span class="hljs-number">15</span>, -<span class="hljs-number">1416354905</span>),
+            d = u(d, h, m, p, e[r + <span class="hljs-number">5</span>], <span class="hljs-number">21</span>, -<span class="hljs-number">57434055</span>),
+            p = u(p, d, h, m, e[r + <span class="hljs-number">12</span>], <span class="hljs-number">6</span>, <span class="hljs-number">1700485571</span>),
+            m = u(m, p, d, h, e[r + <span class="hljs-number">3</span>], <span class="hljs-number">10</span>, -<span class="hljs-number">1894986606</span>),
+            h = u(h, m, p, d, e[r + <span class="hljs-number">10</span>], <span class="hljs-number">15</span>, -<span class="hljs-number">1051523</span>),
+            d = u(d, h, m, p, e[r + <span class="hljs-number">1</span>], <span class="hljs-number">21</span>, -<span class="hljs-number">2054922799</span>),
+            p = u(p, d, h, m, e[r + <span class="hljs-number">8</span>], <span class="hljs-number">6</span>, <span class="hljs-number">1873313359</span>),
+            m = u(m, p, d, h, e[r + <span class="hljs-number">15</span>], <span class="hljs-number">10</span>, -<span class="hljs-number">30611744</span>),
+            h = u(h, m, p, d, e[r + <span class="hljs-number">6</span>], <span class="hljs-number">15</span>, -<span class="hljs-number">1560198380</span>),
+            d = u(d, h, m, p, e[r + <span class="hljs-number">13</span>], <span class="hljs-number">21</span>, <span class="hljs-number">1309151649</span>),
+            p = u(p, d, h, m, e[r + <span class="hljs-number">4</span>], <span class="hljs-number">6</span>, -<span class="hljs-number">145523070</span>),
+            m = u(m, p, d, h, e[r + <span class="hljs-number">11</span>], <span class="hljs-number">10</span>, -<span class="hljs-number">1120210379</span>),
+            h = u(h, m, p, d, e[r + <span class="hljs-number">2</span>], <span class="hljs-number">15</span>, <span class="hljs-number">718787259</span>),
+            d = u(d, h, m, p, e[r + <span class="hljs-number">9</span>], <span class="hljs-number">21</span>, -<span class="hljs-number">343485551</span>),
+            p = t(p, s),
+            d = t(d, c),
+            h = t(h, l),
+            m = t(m, f);
+        <span class="hljs-keyword">return</span> [p, d, h, m]
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">c</span><span class="hljs-params">(e)</span> {</span>
+        <span class="hljs-keyword">var</span> t, n = <span class="hljs-string">""</span>;
+        <span class="hljs-keyword">for</span> (t = <span class="hljs-number">0</span>; t &lt; <span class="hljs-number">32</span> * e.length; t += <span class="hljs-number">8</span>)
+            n += <span class="hljs-built_in">String</span>.fromCharCode(e[t &gt;&gt; <span class="hljs-number">5</span>] &gt;&gt;&gt; t % <span class="hljs-number">32</span> &amp; <span class="hljs-number">255</span>);
+        <span class="hljs-keyword">return</span> n
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">l</span><span class="hljs-params">(e)</span> {</span>
+        <span class="hljs-keyword">var</span> t, n = [];
+        <span class="hljs-keyword">for</span> (n[(e.length &gt;&gt; <span class="hljs-number">2</span>) - <span class="hljs-number">1</span>] = <span class="hljs-keyword">void</span> <span class="hljs-number">0</span>,
+        t = <span class="hljs-number">0</span>; t &lt; n.length; t += <span class="hljs-number">1</span>)
+            n[t] = <span class="hljs-number">0</span>;
+        <span class="hljs-keyword">for</span> (t = <span class="hljs-number">0</span>; t &lt; <span class="hljs-number">8</span> * e.length; t += <span class="hljs-number">8</span>)
+            n[t &gt;&gt; <span class="hljs-number">5</span>] |= (<span class="hljs-number">255</span> &amp; e.charCodeAt(t / <span class="hljs-number">8</span>)) &lt;&lt; t % <span class="hljs-number">32</span>;
+        <span class="hljs-keyword">return</span> n
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">f</span><span class="hljs-params">(e)</span> {</span>
+        <span class="hljs-keyword">return</span> c(s(l(e), <span class="hljs-number">8</span> * e.length))
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">p</span><span class="hljs-params">(e, t)</span> {</span>
+        <span class="hljs-keyword">var</span> n, r, o = l(e), i = [], a = [];
+        <span class="hljs-keyword">for</span> (i[<span class="hljs-number">15</span>] = a[<span class="hljs-number">15</span>] = <span class="hljs-keyword">void</span> <span class="hljs-number">0</span>,
+        o.length &gt; <span class="hljs-number">16</span> &amp;&amp; (o = s(o, <span class="hljs-number">8</span> * e.length)),
+        n = <span class="hljs-number">0</span>; <span class="hljs-number">16</span> &gt; n; n += <span class="hljs-number">1</span>)
+            i[n] = <span class="hljs-number">909522486</span> ^ o[n],
+            a[n] = <span class="hljs-number">1549556828</span> ^ o[n];
+        <span class="hljs-keyword">return</span> r = s(i.concat(l(t)), <span class="hljs-number">512</span> + <span class="hljs-number">8</span> * t.length),
+        c(s(a.concat(r), <span class="hljs-number">640</span>))
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">d</span><span class="hljs-params">(e)</span> {</span>
+        <span class="hljs-keyword">var</span> t, n, r = <span class="hljs-string">"0123456789abcdef"</span>, o = <span class="hljs-string">""</span>;
+        <span class="hljs-keyword">for</span> (n = <span class="hljs-number">0</span>; n &lt; e.length; n += <span class="hljs-number">1</span>)
+            t = e.charCodeAt(n),
+            o += r.charAt(t &gt;&gt;&gt; <span class="hljs-number">4</span> &amp; <span class="hljs-number">15</span>) + r.charAt(<span class="hljs-number">15</span> &amp; t);
+        <span class="hljs-keyword">return</span> o
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">h</span><span class="hljs-params">(e)</span> {</span>
+        <span class="hljs-keyword">return</span> <span class="hljs-built_in">unescape</span>(<span class="hljs-built_in">encodeURIComponent</span>(e))
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">m</span><span class="hljs-params">(e)</span> {</span>
+        <span class="hljs-keyword">return</span> f(h(e))
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">g</span><span class="hljs-params">(e)</span> {</span>
+        <span class="hljs-keyword">return</span> d(m(e))
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">v</span><span class="hljs-params">(e, t)</span> {</span>
+        <span class="hljs-keyword">return</span> p(h(e), h(t))
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">y</span><span class="hljs-params">(e, t)</span> {</span>
+        <span class="hljs-keyword">return</span> d(v(e, t))
+    }
+    <span class="hljs-function"><span class="hljs-keyword">function</span> <span class="hljs-title">b</span><span class="hljs-params">(e, t, n)</span> {</span>
+        <span class="hljs-keyword">return</span> t ? n ? v(t, e) : y(t, e) : n ? m(e) : g(e)
+    }
+    <span class="hljs-string">"function"</span> == <span class="hljs-keyword">typeof</span> define &amp;&amp; define.amd ? define(<span class="hljs-string">"static/js/lib/md5"</span>, [<span class="hljs-string">"require"</span>], <span class="hljs-function"><span class="hljs-keyword">function</span><span class="hljs-params">()</span> {</span>
+        <span class="hljs-keyword">return</span> b
+    }) : <span class="hljs-string">"object"</span> == <span class="hljs-keyword">typeof</span> module &amp;&amp; module.exports ? module.exports = b : e.md5 = b
+}(<span class="hljs-keyword">this</span>)</code></pre>
+
+
+
+<h2 id="五最后">五.最后</h2>
+
+<blockquote>
+  <p>我还发现了头条有个简约版，研究后发现这个简约版应该更好爬一些。</p>
+</blockquote>
+
+<p><img src="http://img.blog.csdn.net/20161226230850348?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjA5NTQ5NTk=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+
+<blockquote>
+  <p>访问的格式是p+页码，直接读取每页里面的链接，就可以进行爬取了，就不再通过json串来获取文章地址，也不需要传什么限制参数，在本项目上稍加改动就可以了</p>
+</blockquote>
+
+<p><img src="http://img.blog.csdn.net/20161226230958084?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjA5NTQ5NTk=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+
+<p><img src="http://img.blog.csdn.net/20161226231623684?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXFfMjA5NTQ5NTk=/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast" alt="这里写图片描述" title=""></p>
+
+
+
+<h2 id="六just-do-it">六.JUST DO IT</h2>
+
+<blockquote>
+  <p>。。。。。。。。。。。。。。。。。。。。。。</p>
+</blockquote></div></body>
+</html>

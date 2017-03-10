@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="io.z77z.dao.FunnyMapper" >
+  <resultMap id="BaseResultMap" type="io.z77z.entity.Funny" >
+    <id column="funny_id" property="funnyId" jdbcType="INTEGER" />
+    <result column="article_genre" property="articleGenre" jdbcType="VARCHAR" />
+    <result column="behot_time" property="behotTime" jdbcType="TIMESTAMP" />
+    <result column="chinese_tag" property="chineseTag" jdbcType="VARCHAR" />
+    <result column="group_id" property="groupId" jdbcType="VARCHAR" />
+    <result column="has_gallery" property="hasGallery" jdbcType="VARCHAR" />
+    <result column="image_url" property="imageUrl" jdbcType="VARCHAR" />
+    <result column="is_feed_ad" property="isFeedAd" jdbcType="VARCHAR" />
+    <result column="media_avatar_url" property="mediaAvatarUrl" jdbcType="VARCHAR" />
+    <result column="media_url" property="mediaUrl" jdbcType="VARCHAR" />
+    <result column="middle_mode" property="middleMode" jdbcType="VARCHAR" />
+    <result column="more_mode" property="moreMode" jdbcType="VARCHAR" />
+    <result column="single_mode" property="singleMode" jdbcType="VARCHAR" />
+    <result column="source" property="source" jdbcType="VARCHAR" />
+    <result column="source_url" property="sourceUrl" jdbcType="VARCHAR" />
+    <result column="tag" property="tag" jdbcType="VARCHAR" />
+    <result column="tag_url" property="tagUrl" jdbcType="VARCHAR" />
+    <result column="title" property="title" jdbcType="VARCHAR" />
+    <result column="comments_count" property="commentsCount" jdbcType="VARCHAR" />
+  </resultMap>
+  <resultMap id="ResultMapWithBLOBs" type="io.z77z.entity.Funny" extends="BaseResultMap" >
+    <result column="document" property="document" jdbcType="LONGVARCHAR" />
+  </resultMap>
+  <sql id="Base_Column_List" >
+    funny_id, article_genre, behot_time, chinese_tag, group_id, has_gallery, image_url, 
+    is_feed_ad, media_avatar_url, media_url, middle_mode, more_mode, single_mode, source, 
+    source_url, tag, tag_url, title, comments_count
+  </sql>
+  <sql id="Blob_Column_List" >
+    document
+  </sql>
+  <select id="selectByPrimaryKey" resultMap="ResultMapWithBLOBs" parameterType="java.lang.Integer" >
+    select 
+    <include refid="Base_Column_List" />
+    ,
+    <include refid="Blob_Column_List" />
+    from funny
+    where funny_id = #{funnyId,jdbcType=INTEGER}
+  </select>
+  <delete id="deleteByPrimaryKey" parameterType="java.lang.Integer" >
+    delete from funny
+    where funny_id = #{funnyId,jdbcType=INTEGER}
+  </delete>
+  <insert id="insert" parameterType="io.z77z.entity.Funny" >
+    insert into funny (funny_id, article_genre, behot_time, 
+      chinese_tag, group_id, has_gallery, 
+      image_url, is_feed_ad, media_avatar_url, 
+      media_url, middle_mode, more_mode, 
+      single_mode, source, source_url, 
+      tag, tag_url, title, 
+      comments_count, document)
+    values (#{funnyId,jdbcType=INTEGER}, #{articleGenre,jdbcType=VARCHAR}, #{behotTime,jdbcType=TIMESTAMP}, 
+      #{chineseTag,jdbcType=VARCHAR}, #{groupId,jdbcType=VARCHAR}, #{hasGallery,jdbcType=VARCHAR}, 
+      #{imageUrl,jdbcType=VARCHAR}, #{isFeedAd,jdbcType=VARCHAR}, #{mediaAvatarUrl,jdbcType=VARCHAR}, 
+      #{mediaUrl,jdbcType=VARCHAR}, #{middleMode,jdbcType=VARCHAR}, #{moreMode,jdbcType=VARCHAR}, 
+      #{singleMode,jdbcType=VARCHAR}, #{source,jdbcType=VARCHAR}, #{sourceUrl,jdbcType=VARCHAR}, 
+      #{tag,jdbcType=VARCHAR}, #{tagUrl,jdbcType=VARCHAR}, #{title,jdbcType=VARCHAR}, 
+      #{commentsCount,jdbcType=VARCHAR}, #{document,jdbcType=LONGVARCHAR})
+  </insert>
+  <insert id="insertSelective" parameterType="io.z77z.entity.Funny" >
+    insert into funny
+    <trim prefix="(" suffix=")" suffixOverrides="," >
+      <if test="funnyId != null" >
+        funny_id,
+      </if>
+      <if test="articleGenre != null" >
+        article_genre,
+      </if>
+      <if test="behotTime != null" >
+        behot_time,
+      </if>
+      <if test="chineseTag != null" >
+        chinese_tag,
+      </if>
+      <if test="groupId != null" >
+        group_id,
+      </if>
+      <if test="hasGallery != null" >
+        has_gallery,
+      </if>
+      <if test="imageUrl != null" >
+        image_url,
+      </if>
+      <if test="isFeedAd != null" >
+        is_feed_ad,
+      </if>
+      <if test="mediaAvatarUrl != null" >
+        media_avatar_url,
+      </if>
+      <if test="mediaUrl != null" >
+        media_url,
+      </if>
+      <if test="middleMode != null" >
+        middle_mode,
+      </if>
+      <if test="moreMode != null" >
+        more_mode,
+      </if>
+      <if test="singleMode != null" >
+        single_mode,
+      </if>
+      <if test="source != null" >
+        source,
+      </if>
+      <if test="sourceUrl != null" >
+        source_url,
+      </if>
+      <if test="tag != null" >
+        tag,
+      </if>
+      <if test="tagUrl != null" >
+        tag_url,
+      </if>
+      <if test="title != null" >
+        title,
+      </if>
+      <if test="commentsCount != null" >
+        comments_count,
+      </if>
+      <if test="document != null" >
+        document,
+      </if>
+    </trim>
+    <trim prefix="values (" suffix=")" suffixOverrides="," >
+      <if test="funnyId != null" >
+        #{funnyId,jdbcType=INTEGER},
+      </if>
+      <if test="articleGenre != null" >
+        #{articleGenre,jdbcType=VARCHAR},
+      </if>
+      <if test="behotTime != null" >
+        #{behotTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="chineseTag != null" >
+        #{chineseTag,jdbcType=VARCHAR},
+      </if>
+      <if test="groupId != null" >
+        #{groupId,jdbcType=VARCHAR},
+      </if>
+      <if test="hasGallery != null" >
+        #{hasGallery,jdbcType=VARCHAR},
+      </if>
+      <if test="imageUrl != null" >
+        #{imageUrl,jdbcType=VARCHAR},
+      </if>
+      <if test="isFeedAd != null" >
+        #{isFeedAd,jdbcType=VARCHAR},
+      </if>
+      <if test="mediaAvatarUrl != null" >
+        #{mediaAvatarUrl,jdbcType=VARCHAR},
+      </if>
+      <if test="mediaUrl != null" >
+        #{mediaUrl,jdbcType=VARCHAR},
+      </if>
+      <if test="middleMode != null" >
+        #{middleMode,jdbcType=VARCHAR},
+      </if>
+      <if test="moreMode != null" >
+        #{moreMode,jdbcType=VARCHAR},
+      </if>
+      <if test="singleMode != null" >
+        #{singleMode,jdbcType=VARCHAR},
+      </if>
+      <if test="source != null" >
+        #{source,jdbcType=VARCHAR},
+      </if>
+      <if test="sourceUrl != null" >
+        #{sourceUrl,jdbcType=VARCHAR},
+      </if>
+      <if test="tag != null" >
+        #{tag,jdbcType=VARCHAR},
+      </if>
+      <if test="tagUrl != null" >
+        #{tagUrl,jdbcType=VARCHAR},
+      </if>
+      <if test="title != null" >
+        #{title,jdbcType=VARCHAR},
+      </if>
+      <if test="commentsCount != null" >
+        #{commentsCount,jdbcType=VARCHAR},
+      </if>
+      <if test="document != null" >
+        #{document,jdbcType=LONGVARCHAR},
+      </if>
+    </trim>
+  </insert>
+  <update id="updateByPrimaryKeySelective" parameterType="io.z77z.entity.Funny" >
+    update funny
+    <set >
+      <if test="articleGenre != null" >
+        article_genre = #{articleGenre,jdbcType=VARCHAR},
+      </if>
+      <if test="behotTime != null" >
+        behot_time = #{behotTime,jdbcType=TIMESTAMP},
+      </if>
+      <if test="chineseTag != null" >
+        chinese_tag = #{chineseTag,jdbcType=VARCHAR},
+      </if>
+      <if test="groupId != null" >
+        group_id = #{groupId,jdbcType=VARCHAR},
+      </if>
+      <if test="hasGallery != null" >
+        has_gallery = #{hasGallery,jdbcType=VARCHAR},
+      </if>
+      <if test="imageUrl != null" >
+        image_url = #{imageUrl,jdbcType=VARCHAR},
+      </if>
+      <if test="isFeedAd != null" >
+        is_feed_ad = #{isFeedAd,jdbcType=VARCHAR},
+      </if>
+      <if test="mediaAvatarUrl != null" >
+        media_avatar_url = #{mediaAvatarUrl,jdbcType=VARCHAR},
+      </if>
+      <if test="mediaUrl != null" >
+        media_url = #{mediaUrl,jdbcType=VARCHAR},
+      </if>
+      <if test="middleMode != null" >
+        middle_mode = #{middleMode,jdbcType=VARCHAR},
+      </if>
+      <if test="moreMode != null" >
+        more_mode = #{moreMode,jdbcType=VARCHAR},
+      </if>
+      <if test="singleMode != null" >
+        single_mode = #{singleMode,jdbcType=VARCHAR},
+      </if>
+      <if test="source != null" >
+        source = #{source,jdbcType=VARCHAR},
+      </if>
+      <if test="sourceUrl != null" >
+        source_url = #{sourceUrl,jdbcType=VARCHAR},
+      </if>
+      <if test="tag != null" >
+        tag = #{tag,jdbcType=VARCHAR},
+      </if>
+      <if test="tagUrl != null" >
+        tag_url = #{tagUrl,jdbcType=VARCHAR},
+      </if>
+      <if test="title != null" >
+        title = #{title,jdbcType=VARCHAR},
+      </if>
+      <if test="commentsCount != null" >
+        comments_count = #{commentsCount,jdbcType=VARCHAR},
+      </if>
+      <if test="document != null" >
+        document = #{document,jdbcType=LONGVARCHAR},
+      </if>
+    </set>
+    where funny_id = #{funnyId,jdbcType=INTEGER}
+  </update>
+  <update id="updateByPrimaryKeyWithBLOBs" parameterType="io.z77z.entity.Funny" >
+    update funny
+    set article_genre = #{articleGenre,jdbcType=VARCHAR},
+      behot_time = #{behotTime,jdbcType=TIMESTAMP},
+      chinese_tag = #{chineseTag,jdbcType=VARCHAR},
+      group_id = #{groupId,jdbcType=VARCHAR},
+      has_gallery = #{hasGallery,jdbcType=VARCHAR},
+      image_url = #{imageUrl,jdbcType=VARCHAR},
+      is_feed_ad = #{isFeedAd,jdbcType=VARCHAR},
+      media_avatar_url = #{mediaAvatarUrl,jdbcType=VARCHAR},
+      media_url = #{mediaUrl,jdbcType=VARCHAR},
+      middle_mode = #{middleMode,jdbcType=VARCHAR},
+      more_mode = #{moreMode,jdbcType=VARCHAR},
+      single_mode = #{singleMode,jdbcType=VARCHAR},
+      source = #{source,jdbcType=VARCHAR},
+      source_url = #{sourceUrl,jdbcType=VARCHAR},
+      tag = #{tag,jdbcType=VARCHAR},
+      tag_url = #{tagUrl,jdbcType=VARCHAR},
+      title = #{title,jdbcType=VARCHAR},
+      comments_count = #{commentsCount,jdbcType=VARCHAR},
+      document = #{document,jdbcType=LONGVARCHAR}
+    where funny_id = #{funnyId,jdbcType=INTEGER}
+  </update>
+  <update id="updateByPrimaryKey" parameterType="io.z77z.entity.Funny" >
+    update funny
+    set article_genre = #{articleGenre,jdbcType=VARCHAR},
+      behot_time = #{behotTime,jdbcType=TIMESTAMP},
+      chinese_tag = #{chineseTag,jdbcType=VARCHAR},
+      group_id = #{groupId,jdbcType=VARCHAR},
+      has_gallery = #{hasGallery,jdbcType=VARCHAR},
+      image_url = #{imageUrl,jdbcType=VARCHAR},
+      is_feed_ad = #{isFeedAd,jdbcType=VARCHAR},
+      media_avatar_url = #{mediaAvatarUrl,jdbcType=VARCHAR},
+      media_url = #{mediaUrl,jdbcType=VARCHAR},
+      middle_mode = #{middleMode,jdbcType=VARCHAR},
+      more_mode = #{moreMode,jdbcType=VARCHAR},
+      single_mode = #{singleMode,jdbcType=VARCHAR},
+      source = #{source,jdbcType=VARCHAR},
+      source_url = #{sourceUrl,jdbcType=VARCHAR},
+      tag = #{tag,jdbcType=VARCHAR},
+      tag_url = #{tagUrl,jdbcType=VARCHAR},
+      title = #{title,jdbcType=VARCHAR},
+      comments_count = #{commentsCount,jdbcType=VARCHAR}
+    where funny_id = #{funnyId,jdbcType=INTEGER}
+  </update>
+  <select id="selectByGroupId" resultMap="ResultMapWithBLOBs" parameterType="java.lang.String" >
+    select group_id from funny where group_id = #{groupId,jdbcType=VARCHAR}
+  </select>
+</mapper>
